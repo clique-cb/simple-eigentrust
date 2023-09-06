@@ -22,6 +22,7 @@
                 numpy
                 scipy
                 matplotlib
+                networkx
                 jupyterlab
               ]))
           ];
