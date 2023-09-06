@@ -40,6 +40,13 @@ fn main() -> Result<()> {
         G[[u, v]] = w
     }
 
+    let mut p = Array::zeros(n);
+
+    for i in 0..n {
+        let pi: f32 = next_val(words)?;
+        p[i] = pi;    
+    }
+
     for i in 0..n {
         for j in 0..n {
             write!(writer, "{} ", G[[i, j]])?;

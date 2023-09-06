@@ -15,7 +15,16 @@
         rustVersion = pkgs.rust-bin.stable.latest.default;
       in {
         devShell = pkgs.mkShell {
-          buildInputs = [ (rustVersion.override { extensions = [ "rust-src" ]; } )];
+          buildInputs = [
+            (rustVersion.override { extensions = [ "rust-src" ]; } )
+            (pkgs.python311.withPackages
+              (ps: with ps; [
+                numpy
+                scipy
+                matplotlib
+                jupyterlab
+              ]))
+          ];
         };
       });
 }
