@@ -25,6 +25,7 @@
                 networkx
                 jupyterlab
               ]))
+            pkgs.pdm
           ];
         };
       });

@@ -1,0 +1,15 @@
+[project]
+name = "clique-sim"
+version = "0.1.0"
+description = "Simulations for financial trust protocols on graphs"
+authors = [
+    {name = "Dmitry Mukhutdinov", email = "flyingleafe@gmail.com"},
+]
+dependencies = []
+requires-python = ">=3.11"
+readme = "README.md"
+license = {text = "MIT"}
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
