@@ -5,7 +5,9 @@ description = "Simulations for financial trust protocols on graphs"
 authors = [
     {name = "Dmitry Mukhutdinov", email = "flyingleafe@gmail.com"},
 ]
-dependencies = []
+dependencies = [
+    "networkx>=3.2.1",
+]
 requires-python = ">=3.11"
 readme = "README.md"
 license = {text = "MIT"}
