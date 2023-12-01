@@ -1,4 +1,4 @@
-from collections.abc import ABC, abstractmethod
+from abc import ABC, abstractmethod
 
 
 class Protocol(ABC):
@@ -116,3 +116,6 @@ class Protocol(ABC):
         Get the total debt in the protocol.
         """
         pass
+
+
+
