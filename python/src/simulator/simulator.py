@@ -79,6 +79,27 @@ def setup_simulation(
     return protocol, user_ids
 
 
+def simulate_day_bank_run(transactions_per_day, protocol, user_ids):
+    failed_transactions = 0
+    for _ in range(transactions_per_day):
+        ids = [x for x in user_ids if protocol.available_balance(x) >= 1]
+        if not ids:
+            break
+        borrower = random.choice(ids)
+        credit_limit = protocol.credit_limit(borrower)
+
+        # Users attempt to withdraw a larger portion of their credit limit
+        amount = random.randint(int(0.5 * credit_limit), credit_limit)
+
+        try:
+            protocol.borrow(borrower, amount)
+        except ValueError as e:
+            print(f"Transaction failed: {e}")
+            failed_transactions += 1
+
+    return failed_transactions
+
+
 def simulate_day(transactions_per_day, protocol, user_ids):
     for _ in range(transactions_per_day):
         ids = [x for x in user_ids if protocol.available_balance(x) >= 1]
@@ -94,7 +115,22 @@ def simulate_day(transactions_per_day, protocol, user_ids):
             print(f"Transaction failed: {e}")
 
 
-def simulate(
+def simulate_bank_run(
+    num_users, initial_balance, num_days, transactions_per_day, distribution_type
+):
+    protocol, user_ids = setup_simulation(num_users, distribution_type, initial_balance)
+
+    total_failed_transactions = 0
+    for day in range(num_days):
+        failed_transactions = simulate_day_bank_run(
+            transactions_per_day, protocol, user_ids
+        )
+        total_failed_transactions += failed_transactions
+
+    print(f"Total failed transactions: {total_failed_transactions}")
+
+
+def basic_simulation(
     num_users, initial_balance, num_days, transactions_per_day, distribution_type
 ):
     protocol, user_ids = setup_simulation(num_users, distribution_type, initial_balance)
