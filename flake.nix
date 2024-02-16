@@ -24,6 +24,8 @@
                 matplotlib
                 networkx
                 jupyterlab
+                pip
+                notebook
               ]))
             pkgs.pdm
           ];

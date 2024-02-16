@@ -87,7 +87,6 @@ class VerySimple(Protocol):
         )
 
     def borrow(self, user_id: str, amount: int):
-        print("initial amount", amount)
         if amount > self.credit_limit(user_id):
             raise ValueError("Insufficient credit limit")
 
@@ -95,7 +94,6 @@ class VerySimple(Protocol):
         self_locked = min(self.available_balance(user_id), amount)
         self._self_locks[user_id] = self._self_locks[user_id] + self_locked
         amount = amount - self_locked
-        print("amount before lock", amount)
         if amount > 0:
             # Then, lock money from friends, proportionally
             neighbors_limits = [
