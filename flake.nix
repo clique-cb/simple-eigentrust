@@ -29,6 +29,13 @@
               ]))
             pkgs.pdm
           ];
+
+          shellHook = ''
+            export CARGO_HOME=$PWD/.cargo
+            export RUSTUP_HOME=$PWD/.rustup
+            export PATH=$PWD/.cargo/bin:$PWD/.rustup/bin:$PWD/python/.venv/bin:$PATH
+            export PYTHONPATH=$PWD/python/.venv/lib/python3.11/site-packages:$PYTHONPATH
+          '';
         };
       });
 }

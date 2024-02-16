@@ -119,10 +119,7 @@ class VerySimple(Protocol):
             raise ValueError("Wow what happened?")
 
     def total_value_locked(self) -> int:
-        total_locked = sum(self._self_locks.values())
-        for _, _, data in self._graph.edges(data=True):
-            total_locked += data["locked"]
-        return total_locked
+        return sum(self._balances.values())
 
     def debt(self, user_id: str, recipient_id: str = None) -> int:
         if recipient_id:
