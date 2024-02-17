@@ -6,6 +6,7 @@ authors = [
     {name = "Dmitry Mukhutdinov", email = "flyingleafe@gmail.com"},
 ]
 dependencies = [
+    "numpy>=1.21.2",
     "networkx>=3.2.1",
     "fastapi[all]>=0.109.2",
 ]

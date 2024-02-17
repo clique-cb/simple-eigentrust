@@ -7,6 +7,7 @@ RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
 ENV PATH="${HOME}/.cargo/bin:${PATH}"
 
 # install PDM
+RUN echo $PATH
 RUN pip install -U pip setuptools wheel
 RUN pip install pdm
 
