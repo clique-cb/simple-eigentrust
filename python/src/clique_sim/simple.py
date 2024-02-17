@@ -54,7 +54,8 @@ class VerySimple(Protocol):
         )
 
     def transfer(self, user_id: str, amount: int, recipient_id: str):
-        raise NotImplementedError
+        self.withdraw(user_id, amount)
+        self.deposit(recipient_id, amount)
 
     def set_trust(self, user_id: str, amount: int, recipient_id: str):
         if self._graph.has_edge(user_id, recipient_id):

@@ -59,7 +59,7 @@ async def withdraw(user_id: str, amount: int):
     return {"message": "Withdrawn"}
 
 
-@app.post("{user_id}/transfer")
+@app.post("/{user_id}/transfer")
 async def transfer(user_id: str, amount: int, recipient_id: str):
     protocol.transfer(user_id, amount, recipient_id)
     return {"message": "Transferred"}
@@ -83,8 +83,19 @@ async def repay(user_id: str, amount: int):
     return {"message": "Repaid"}
 
 
-# Run the server
-if __name__ == "__main__":
-    import uvicorn
 
-    uvicorn.run(app, port=8000)
+# Run the server
+
+def main():
+    import uvicorn
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run the simulation server")
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to bind to")
+    parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
+    args = parser.parse_args()
+
+    uvicorn.run(app, port=args.port, host=args.host)
+
+if __name__ == "__main__":
+    main()
