@@ -4,7 +4,7 @@ FROM python:3.10 AS builder
 # install rust and cargo for some fucking reason
 RUN apt-get update && apt-get -y install curl gcc
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
-ENV PATH="${HOME}/.cargo/bin:${PATH}"
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 # install PDM
 RUN echo $PATH
