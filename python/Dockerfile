@@ -1,6 +1,10 @@
 # build stage
 FROM python:3.10 AS builder
 
+# install rust and cargo for some fucking reason
+RUN apt-get update && apt-get -y install curl gcc
+RUN curl https://sh.rustup.rs -sSf
+
 # install PDM
 RUN pip install -U pip setuptools wheel
 RUN pip install pdm
