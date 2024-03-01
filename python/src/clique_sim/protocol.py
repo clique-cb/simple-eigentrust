@@ -126,4 +126,12 @@ class Protocol(ABC):
         pass
 
 
+class Serializable(ABC):
+    @abstractmethod
+    def to_dict(self) -> Dict:
+        pass
 
+    @classmethod
+    @abstractmethod
+    def from_dict(cls, data: Dict) -> "Serializable":
+        pass

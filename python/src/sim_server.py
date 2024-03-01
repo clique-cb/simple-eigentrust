@@ -1,12 +1,41 @@
+import json
+from contextlib import asynccontextmanager
 from typing import Optional, Dict
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 from clique_sim.protocol import Protocol
 from clique_sim.simple import VerySimple
 
 
-app = FastAPI()
-protocol: Protocol = VerySimple()
+protocol: Protocol
+protocol_save_file: str = ".protocol.json"
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Loads and saves the protocol 
+    """
+    global protocol
+    try:
+        with open(protocol_save_file, "r") as f:
+            protocol = VerySimple.from_dict(json.load(f))
+    except Exception as e:
+        print(str(e))
+        protocol = VerySimple()
+
+    try:
+        yield
+    finally:
+        with open(protocol_save_file, "w") as f:
+            json.dump(protocol.to_dict(), f)
+         
+
+app = FastAPI(lifespan=lifespan)
+
+@app.exception_handler(ValueError)
+async def value_error_handler(request, exc):
+    return JSONResponse(status_code=400, content={"message": str(exc)})
 
 # Global methods
 
@@ -24,7 +53,7 @@ async def total_debt():
 
 @app.post("/register")
 async def register(user_id: str):
-    protocol.add_user(user_id)
+    protocol.register(user_id)
     return {"message": "User registered"}
 
 
