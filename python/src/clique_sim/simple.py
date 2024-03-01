@@ -59,9 +59,9 @@ class VerySimple(Protocol, Serializable):
         self.require_registered(creditor_id)
         return min(self.remaining_capacity(creditor_id, debtor_id), self.available_balance(creditor_id))
 
-    def credit_limit(self, user_id: str):
+    def credit_limit(self, user_id: str) -> Dict[str, int]:
         self.require_registered(user_id)
-        return sum(self.edge_credit_limit(v, user_id) for v in self._graph.predecessors(user_id))
+        return {v: self.edge_credit_limit(v, user_id) for v in self._graph.predecessors(user_id)}
     
     # Methods
 

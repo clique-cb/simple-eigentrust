@@ -91,7 +91,7 @@ class Protocol(ABC):
         pass
 
     @abstractmethod
-    def credit_limit(self, user_id: str) -> int:
+    def credit_limit(self, user_id: str) -> Dict[str, int]:
         """
         Get the global trust of a user.
         """

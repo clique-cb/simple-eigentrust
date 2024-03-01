@@ -63,7 +63,7 @@ async def balance(user_id: str):
 
 
 @app.get("/{user_id}/credit_limit")
-async def credit_limit(user_id: str):
+async def credit_limit(user_id: str) -> Dict[str, int]:
     return protocol.credit_limit(user_id)
 
 
