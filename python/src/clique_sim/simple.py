@@ -1,3 +1,4 @@
+from typing import Dict
 from collections import defaultdict
 
 import networkx as nx
@@ -8,26 +9,46 @@ from .utils import split_proportionally
 
 class VerySimple(Protocol):
     """
-    The simplest protocol. The debt _cannot_ be re-credited. It's like Union protocol.
+    The simplest protocol. Debt only happens between direct neighbors. However, it can be
+    re-credited further (a user with a locked balance can borrow further and withdraw)
     """
 
     def __init__(self):
         self._graph = nx.DiGraph()
         self._balances = defaultdict(int)
-        self._self_locks = defaultdict(int)
+        # self._self_locks = defaultdict(int)
 
-    def _edge_trust(self, user_id: str, recipient_id: str) -> int:
-        return self._graph[user_id][recipient_id]["capacity"]
+    # Attributes
 
-    def _locked_edge_trust(self, user_id: str, recipient_id: str) -> int:
-        return self._graph[user_id][recipient_id]["locked"]
+    def _capacity(self, user_id: str, recipient_id: str) -> int:
+        return self._graph[user_id][recipient_id]["capacity"] if self._graph.has_edge(user_id, recipient_id) else 0
 
-    def _remaining_edge_trust(self, user_id: str, recipient_id: str) -> int:
-        return self._edge_trust(user_id, recipient_id) - self._locked_edge_trust(
-            user_id, recipient_id
-        )
+    def _flow(self, user_id: str, recipient_id: str) -> int:
+        return self._graph[user_id][recipient_id]["flow"] if self._graph.has_edge(user_id, recipient_id) else 0
+    
+    edge_debt = _flow
 
-    def add_user(self, user_id: str):
+    def remaining_capacity(self, user_id: str, recipient_id: str) -> int:
+        return self._capacity(user_id, recipient_id) - self._flow(user_id, recipient_id)
+
+    def debt(self, user_id: str) -> int:
+        return sum(self._flow(v, user_id) for v in self._graph.predecessors(user_id))
+
+    def locked_balance(self, user_id: str) -> int:
+        return sum(self._flow(v, user_id) for v in self._graph.successors(user_id)) 
+
+    def available_balance(self, user_id: str) -> int:
+        return self._balances[user_id] - self.locked_balance(user_id) + self.debt(user_id)
+
+    def edge_credit_limit(self, creditor_id: str, debtor_id: str) -> int:
+        return min(self.remaining_capacity(creditor_id, debtor_id), self.available_balance(creditor_id))
+
+    def credit_limit(self, user_id: str):
+        return sum(self.edge_credit_limit(v, user_id) for v in self._graph.predecessors(user_id))
+    
+    # Methods
+
+    def register(self, user_id: str):
         self._graph.add_node(user_id)
 
     def deposit(self, user_id: str, amount: int):
@@ -39,127 +60,40 @@ class VerySimple(Protocol):
         else:
             raise ValueError("Insufficient balance")
 
-    def available_balance(self, user_id: str) -> int:
-        return self._balances[user_id] - self.locked_balance(user_id)
-
-    def locked_balance(self, user_id: str) -> int:
-        return (
-            sum(
-                [
-                    self._locked_edge_trust(user_id, recipient_id)
-                    for recipient_id in self._graph.neighbors(user_id)
-                ]
-            )
-            + self._self_locks[user_id]
-        )
-
     def transfer(self, user_id: str, amount: int, recipient_id: str):
         self.withdraw(user_id, amount)
         self.deposit(recipient_id, amount)
 
-    def set_trust(self, user_id: str, amount: int, recipient_id: str):
-        if self._graph.has_edge(user_id, recipient_id):
-            edge_data = self._graph[user_id][recipient_id]
-            if amount < edge_data["locked"]:
-                raise ValueError("Cannot drop the locked trust")
+    def set_trust(self, user_id: str, trust_deltas: Dict[str, int]):
+        for recipient_id, amount in trust_deltas.items():
+            if self.remaining_capacity(user_id, recipient_id) + amount < 0:
+                raise ValueError(f"Cannot decrease the trust from {user_id} to {recipient_id} by {amount}")
 
-            self._graph[user_id][recipient_id]["capacity"] = amount
-        else:
-            self._graph.add_edge(user_id, recipient_id, capacity=amount, locked=0)
+        for recipient_id, amount in trust_deltas.items():
+            if not self._graph.has_edge(user_id, recipient_id):
+                self._graph.add_edge(user_id, recipient_id, capacity=amount, flow=0)
+            else:
+                self._graph[user_id][recipient_id]["capacity"] += amount
+    
+    def borrow_or_repay(self, user_id: str, flow_deltas: Dict[str, int]):
+        for creditor_id, amount in flow_deltas.items():
+            new_flow = self._flow(creditor_id, user_id) + amount
+            if new_flow < 0:
+                raise ValueError(f"{user_id} cannot repay {-amount} to {creditor_id}: not enough debt")
+            if new_flow > self._capacity(creditor_id, user_id):
+                raise ValueError(f"{user_id} cannot borrow {amount} from {creditor_id}: not enough capacity")
+        
+        for creditor_id, amount in flow_deltas.items():
+            if amount > 0:
+                self._graph[creditor_id][user_id]["flow"] += amount
 
-    def credit_limit(self, user_id: str) -> int:
-        own_money = self.available_balance(user_id)
+    borrow = borrow_or_repay
 
-        # Everything that can flow from friends and not yet locked.
-        return own_money + sum(
-            [
-                min(self._remaining_edge_trust(v, user_id), self.available_balance(v))
-                for v in self._graph.predecessors(user_id)
-            ]
-        )
-
-    def _lock_trust(self, recipient_id: str, voucher_id: str, amount: int):
-        remaining = self._remaining_edge_trust(voucher_id, recipient_id)
-        if amount > remaining:
-            raise ValueError("Insufficient trust")
-
-        self._graph[voucher_id][recipient_id]["locked"] = (
-            self._graph[voucher_id][recipient_id]["locked"] + amount
-        )
-
-    def borrow(self, user_id: str, amount: int):
-        if amount > self.credit_limit(user_id):
-            raise ValueError("Insufficient credit limit")
-
-        # First, lock your own money
-        self_locked = min(self.available_balance(user_id), amount)
-        self._self_locks[user_id] = self._self_locks[user_id] + self_locked
-        amount = amount - self_locked
-        if amount > 0:
-            # Then, lock money from friends, proportionally
-            neighbors_limits = [
-                (
-                    v,
-                    min(
-                        self._remaining_edge_trust(v, user_id),
-                        self.available_balance(v),
-                    ),
-                )
-                for v in self._graph.predecessors(user_id)
-            ]
-
-            split = split_proportionally(
-                amount, [limit for _, limit in neighbors_limits]
-            )
-            for (v, _), x in zip(neighbors_limits, split):
-                self._lock_trust(user_id, v, x)
-
-            amount -= sum(split)
-
-        if amount > 0:
-            raise ValueError("Wow what happened?")
+    def repay(self, user_id: str, flow_deltas: Dict[str, int]):
+        self.borrow_or_repay(user_id, {k: -v for k, v in flow_deltas.items()})
 
     def total_value_locked(self) -> int:
         return sum(self._balances.values())
-
-    def debt(self, user_id: str, recipient_id: str = None) -> int:
-        if recipient_id:
-            return (
-                self._graph[user_id][recipient_id]["locked"]
-                if self._graph.has_edge(user_id, recipient_id)
-                else 0
-            )
-        else:
-            return sum(
-                self._locked_edge_trust(user_id, v)
-                for v in self._graph.neighbors(user_id)
-            )
-
-    def repay(self, user_id: str, amount: int):
-        if amount > self.debt(user_id):
-            raise ValueError("Repayment amount exceeds total debt")
-
-        # Repay self-locked amounts first
-        self_repay = min(self._self_locks[user_id], amount)
-        self._self_locks[user_id] -= self_repay
-        amount -= self_repay
-
-        # Repay debts to others
-        if amount > 0:
-            for recipient_id in self._graph.neighbors(user_id):
-                locked = self._locked_edge_trust(user_id, recipient_id)
-                repay_amount = min(locked, amount)
-                self._graph[user_id][recipient_id]["locked"] -= repay_amount
-                amount -= repay_amount
-
-                if amount == 0:
-                    break
-
-        if amount > 0:
-            raise ValueError("Error in repayment logic")
-
+    
     def total_debt(self) -> int:
-        total_debt = 0
-        for node in self._graph.nodes():
-            total_debt += self.debt(node)
-        return total_debt
+        return sum(self.debt(v) for v in self._graph.nodes)

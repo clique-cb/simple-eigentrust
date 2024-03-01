@@ -22,7 +22,6 @@ RUN mkdir __pypackages__ && pdm sync --prod --no-editable
 
 # run stage
 FROM python:3.10 as sim-server
-
 ARG PORT
 
 # retrieve packages from build stage

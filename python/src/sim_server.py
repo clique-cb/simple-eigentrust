@@ -1,11 +1,12 @@
-from typing import Optional
+from typing import Optional, Dict
 from fastapi import FastAPI
 
+from clique_sim.protocol import Protocol
 from clique_sim.simple import VerySimple
 
 
 app = FastAPI()
-protocol = VerySimple()
+protocol: Protocol = VerySimple()
 
 # Global methods
 
@@ -44,7 +45,10 @@ async def locked(user_id: str):
 
 @app.get("/{user_id}/debt")
 async def debt(user_id: str, recipient_id: Optional[str] = None):
-    return protocol.debt(user_id, recipient_id)
+    if recipient_id is None:
+        return protocol.debt(user_id)
+    else:
+        return protocol.edge_debt(user_id, recipient_id)
 
 
 @app.post("/{user_id}/deposit")
@@ -66,20 +70,20 @@ async def transfer(user_id: str, amount: int, recipient_id: str):
 
 
 @app.post("/{user_id}/trust")
-async def trust(user_id: str, amount: int, recipient_id: str):
-    protocol.set_trust(user_id, amount, recipient_id)
+async def trust(user_id: str, trust_deltas: Dict[str, int]):
+    protocol.set_trust(user_id, trust_deltas)
     return {"message": "Trust set"}
 
 
 @app.post("/{user_id}/borrow")
-async def borrow(user_id: str, amount: int):
-    protocol.borrow(user_id, amount)
+async def borrow(user_id: str, debt_deltas: Dict[str, int]):
+    protocol.borrow(user_id, debt_deltas)
     return {"message": "Borrowed"}
 
 
 @app.post("/{user_id}/repay")
-async def repay(user_id: str, amount: int):
-    protocol.repay(user_id, amount)
+async def repay(user_id: str, debt_deltas: Dict[str, int]):
+    protocol.repay(user_id, debt_deltas)
     return {"message": "Repaid"}
 
 

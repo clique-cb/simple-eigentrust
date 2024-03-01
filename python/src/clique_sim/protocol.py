@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Dict
 
 
 class Protocol(ABC):
@@ -27,7 +28,7 @@ class Protocol(ABC):
     """
 
     @abstractmethod
-    def add_user(self, user_id: str):
+    def register(self, user_id: str):
         """
         Add a user to the protocol.
         """
@@ -69,7 +70,7 @@ class Protocol(ABC):
         pass
 
     @abstractmethod
-    def set_trust(self, user_id: str, amount: int, recipient_id: str):
+    def set_trust(self, user_id: str, trust_deltas: Dict[str, int]):
         """
         Establish a trust link towards another user.
         """
@@ -83,21 +84,28 @@ class Protocol(ABC):
         pass
 
     @abstractmethod
-    def debt(self, user_id: str, recipient_id: str = None) -> int:
+    def edge_debt(self, user_id: str, creditor_id: str) -> int:
+        """
+        Get the debt of a user towards another user.
+        """
+        pass
+
+    @abstractmethod
+    def debt(self, user_id: str) -> int:
         """
         Get the debt of a user.
         """
         pass
 
     @abstractmethod
-    def borrow(self, user_id: str, amount: int):
+    def borrow(self, user_id: str, debt_deltas: Dict[str, int]):
         """
         Borrow money from the protocol.
         """
         pass
 
     @abstractmethod
-    def repay(self, user_id: str, amount: int):
+    def repay(self, user_id: str, debt_deltas: Dict[str, int]):
         """
         Repay the debt.
         """
