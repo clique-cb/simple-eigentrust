@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict
+from typing import Dict, Optional
 
 
 class Protocol(ABC):
@@ -56,9 +56,23 @@ class Protocol(ABC):
         pass
     
     @abstractmethod
-    def locked_balance(self, user_id: str) -> int:
+    def trusted(self, user_id: str) -> Dict[str, int]:
         """
-        Get the locked balance of a user.
+        Get the trust amount from a user to their neighbors.
+        """
+        pass
+
+    @abstractmethod
+    def locked(self, user_id: str) -> Dict[str, int]:
+        """
+        Get the locked balance of a user towards each of their neighbors
+        """
+        pass
+
+    @abstractmethod
+    def debt(self, user_id: str) -> Dict[str, int]:
+        """
+        Get the debts of a user towards their neighbors.
         """
         pass
 
@@ -72,7 +86,7 @@ class Protocol(ABC):
     @abstractmethod
     def set_trust(self, user_id: str, trust_deltas: Dict[str, int]):
         """
-        Establish a trust link towards another user.
+        Establish a trust link towards another user(s).
         """
         pass
 
@@ -80,20 +94,6 @@ class Protocol(ABC):
     def credit_limit(self, user_id: str) -> int:
         """
         Get the global trust of a user.
-        """
-        pass
-
-    @abstractmethod
-    def edge_debt(self, user_id: str, creditor_id: str) -> int:
-        """
-        Get the debt of a user towards another user.
-        """
-        pass
-
-    @abstractmethod
-    def debt(self, user_id: str) -> int:
-        """
-        Get the debt of a user.
         """
         pass
 

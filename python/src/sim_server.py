@@ -38,17 +38,18 @@ async def credit_limit(user_id: str):
     return protocol.credit_limit(user_id)
 
 
+@app.get("/{user_id}/trusted")
+async def trusted(user_id: str) -> Dict[str, int]:
+    return protocol.trusted(user_id)
+
 @app.get("/{user_id}/locked")
-async def locked(user_id: str):
-    return protocol.locked_balance(user_id)
+async def locked(user_id: str) -> Dict[str, int]:
+    return protocol.locked(user_id)
 
 
 @app.get("/{user_id}/debt")
-async def debt(user_id: str, recipient_id: Optional[str] = None):
-    if recipient_id is None:
-        return protocol.debt(user_id)
-    else:
-        return protocol.edge_debt(user_id, recipient_id)
+async def debt(user_id: str) -> Dict[str, int]:
+    return protocol.debt(user_id)
 
 
 @app.post("/{user_id}/deposit")
@@ -85,7 +86,6 @@ async def borrow(user_id: str, debt_deltas: Dict[str, int]):
 async def repay(user_id: str, debt_deltas: Dict[str, int]):
     protocol.repay(user_id, debt_deltas)
     return {"message": "Repaid"}
-
 
 
 # Run the server

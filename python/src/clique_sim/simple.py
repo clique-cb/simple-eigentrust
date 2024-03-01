@@ -31,11 +31,14 @@ class VerySimple(Protocol):
     def remaining_capacity(self, user_id: str, recipient_id: str) -> int:
         return self._capacity(user_id, recipient_id) - self._flow(user_id, recipient_id)
 
-    def debt(self, user_id: str) -> int:
-        return sum(self._flow(v, user_id) for v in self._graph.predecessors(user_id))
+    def trusted(self, user_id: str) -> Dict[str, int]:
+        return {v: self._capacity(user_id, v) for v in self._graph.successors(user_id)}
 
-    def locked_balance(self, user_id: str) -> int:
-        return sum(self._flow(v, user_id) for v in self._graph.successors(user_id)) 
+    def locked(self, user_id: str) -> Dict[str, int]:
+        return {v: self._flow(v, user_id) for v in self._graph.successors(user_id)}
+
+    def debt(self, user_id: str) -> Dict[str, int]:
+        return {v: self._flow(v, user_id) for v in self._graph.predecessors(user_id)}
 
     def available_balance(self, user_id: str) -> int:
         return self._balances[user_id] - self.locked_balance(user_id) + self.debt(user_id)
