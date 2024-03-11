@@ -53,7 +53,7 @@ class VerySimple(Protocol, Serializable):
 
     def available_balance(self, user_id: str) -> int:
         self.require_registered(user_id)
-        return self._balances[user_id] - self.locked_balance(user_id) + self.debt(user_id)
+        return self._balances[user_id] - sum(self.locked(user_id).values()) + sum(self.locked(self.debt(user_id)))
 
     def edge_credit_limit(self, creditor_id: str, debtor_id: str) -> int:
         self.require_registered(creditor_id)
