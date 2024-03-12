@@ -114,8 +114,7 @@ class VerySimple(Protocol, Serializable):
                 raise ValueError(f"{user_id} cannot borrow {amount} from {creditor_id}: not enough capacity")
         
         for creditor_id, amount in flow_deltas.items():
-            if amount > 0:
-                self._graph[creditor_id][user_id]["flow"] += amount
+            self._graph[creditor_id][user_id]["flow"] += amount
 
     borrow = borrow_or_repay
 
