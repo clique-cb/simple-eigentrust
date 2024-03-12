@@ -52,7 +52,7 @@ class VerySimple(Protocol, Serializable):
 
     def locked(self, user_id: str) -> Dict[str, int]:
         self.require_registered(user_id)
-        return {v: self._flow(v, user_id) for v in self._graph.successors(user_id)}
+        return {v: self._flow(user_id, v) for v in self._graph.successors(user_id)}
 
     def debt(self, user_id: str) -> Dict[str, int]:
         self.require_registered(user_id)
