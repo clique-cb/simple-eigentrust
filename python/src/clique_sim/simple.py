@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Iterable
 from collections import defaultdict
 
 import networkx as nx
@@ -25,6 +25,13 @@ class VerySimple(Protocol, Serializable):
         if user_id not in self._graph or user_id not in self._balances:
             raise ValueError(f"{user_id} is not registered")
 
+    def require_all_registered(self, users: Iterable[str]):
+        """
+        Check if all users are registered
+        """
+        for user_id in users:
+            self.require_registered(user_id)
+
     # Attributes
 
     def _capacity(self, user_id: str, recipient_id: str) -> int:
@@ -36,7 +43,7 @@ class VerySimple(Protocol, Serializable):
     edge_debt = _flow
 
     def remaining_capacity(self, user_id: str, recipient_id: str) -> int:
-        self.require_registered(user_id)
+        self.require_all_registered((user_id, recipient_id))
         return self._capacity(user_id, recipient_id) - self._flow(user_id, recipient_id)
 
     def trusted(self, user_id: str) -> Dict[str, int]:
@@ -81,12 +88,12 @@ class VerySimple(Protocol, Serializable):
             raise ValueError("Insufficient balance")
 
     def transfer(self, user_id: str, amount: int, recipient_id: str):
-        self.require_registered(user_id)
+        self.require_all_registered((user_id, recipient_id))
         self.withdraw(user_id, amount)
         self.deposit(recipient_id, amount)
 
     def set_trust(self, user_id: str, trust_deltas: Dict[str, int]):
-        self.require_registered(user_id)
+        self.require_all_registered([user_id] + list(trust_deltas.keys()))
         for recipient_id, amount in trust_deltas.items():
             if self.remaining_capacity(user_id, recipient_id) + amount < 0:
                 raise ValueError(f"Cannot decrease the trust from {user_id} to {recipient_id} by {amount}")
@@ -98,7 +105,7 @@ class VerySimple(Protocol, Serializable):
                 self._graph[user_id][recipient_id]["capacity"] += amount
     
     def borrow_or_repay(self, user_id: str, flow_deltas: Dict[str, int]):
-        self.require_registered(user_id)
+        self.require_all_registered([user_id] + list(flow_deltas.keys()))
         for creditor_id, amount in flow_deltas.items():
             new_flow = self._flow(creditor_id, user_id) + amount
             if new_flow < 0:
