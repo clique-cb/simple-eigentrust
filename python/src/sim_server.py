@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from typing import Optional, Dict
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from clique_sim.protocol import Protocol
 from clique_sim.simple import VerySimple
@@ -32,6 +33,13 @@ async def lifespan(app: FastAPI):
          
 
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.exception_handler(ValueError)
 async def value_error_handler(request, exc):
