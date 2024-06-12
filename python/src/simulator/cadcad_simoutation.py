@@ -35,7 +35,7 @@ def run_cadcad_simulation():
     sim_params = {
         "N": 1,  # Number of Monte Carlo runs
         "T": range(10),  # Number of time steps
-        "M": {},  # Model parameters, empty in this case since no sweeping is used
+        # "M": {},  # Model parameters, empty in this case since no sweeping is used
     }
 
     # Define policy and state update functions
@@ -57,14 +57,14 @@ def run_cadcad_simulation():
     exec_mode = ExecutionMode()
     exec_context = ExecutionContext(exec_mode.single_proc)
     executor = Executor(exec_context, experiment.configs)
-    records, tensor_field = executor.execute()
+    records = executor.execute()
 
-    # Output results
-    df = pd.DataFrame(records)
-    print(df[["simulation", "timestep", "run", "protocol"]])
-
-    # Visualize the final network state, if needed
-    final_protocol = df.iloc[-1]["protocol"]
-    final_graph = final_protocol._graph
-    nx.draw(final_graph, with_labels=True, node_color="lightblue")
-    plt.show()
+    # # Output results
+    # df = pd.DataFrame(records)
+    # print(df[["simulation", "timestep", "run", "protocol"]])
+    #
+    # # Visualize the final network state, if needed
+    # final_protocol = df.iloc[-1]["protocol"]
+    # final_graph = final_protocol._graph
+    # nx.draw(final_graph, with_labels=True, node_color="lightblue")
+    # plt.show()
