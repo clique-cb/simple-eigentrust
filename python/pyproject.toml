@@ -10,6 +10,8 @@ dependencies = [
     "networkx>=3.2.1",
     "fastapi[all]>=0.109.2",
     "pydantic>=2.6.3",
+    "cadCAD>=0.5.3",
+    "matplotlib>=3.9.0",
 ]
 requires-python = ">=3.10"
 readme = "README.md"
@@ -21,3 +23,5 @@ clique-sim-server = "sim_server:main"
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
+
+[tool.pdm]
