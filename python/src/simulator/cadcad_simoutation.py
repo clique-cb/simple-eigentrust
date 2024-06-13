@@ -59,6 +59,7 @@ def run_cadcad_simulation():
     executor = Executor(exec_context, experiment.configs)
     records = executor.execute()
 
+    # print(records)
     # # Output results
     # df = pd.DataFrame(records)
     # print(df[["simulation", "timestep", "run", "protocol"]])
