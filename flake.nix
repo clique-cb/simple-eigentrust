@@ -28,6 +28,7 @@
                 notebook
               ]))
             pkgs.pdm
+            pkgs.zlib
           ];
 
           shellHook = ''
@@ -35,6 +36,7 @@
             export RUSTUP_HOME=$PWD/.rustup
             export PATH=$PWD/.cargo/bin:$PWD/.rustup/bin:$PWD/python/.venv/bin:$PATH
             export PYTHONPATH=$PWD/python/.venv/lib/python3.11/site-packages:$PYTHONPATH
+            export LD_LIBRARY_PATH=${pkgs.zlib}/lib:$LD_LIBRARY_PATH
           '';
         };
       });
