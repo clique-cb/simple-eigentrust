@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import TypeVar, Generic, NamedTuple
+from typing import TypeVar, Generic, NamedTuple, List
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -86,9 +86,7 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
             graph = previous_state["graph"]
             result = {}
             for node in graph.nodes:
-                result[node] = self.node_action_policy(
-                    graph.nodes[node]["state"]
-                )
+                result[node] = self.node_action_policy(graph.nodes[node]["state"])
             return result
 
         def _states_apply(params, substep, state_history, previous_state, policy_input):
@@ -99,6 +97,44 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
             # save state updates to be applied at the end (avoid interference at each time step)
             next_node_states = {}
             next_edge_states = {}
+
+            def dfs_collect_nodes_optimized(start_node, graph, memo):
+                if start_node in memo:
+                    return memo[start_node]
+
+                visited = set()
+                stack = [(start_node, 0)]  # Stack stores tuples of (node, depth)
+                reachable_nodes = []
+
+                while stack:
+                    node, depth = stack.pop()
+                    if node not in visited:
+                        visited.add(node)
+                        reachable_nodes.append((node, depth))
+                        stack.extend(
+                            (n, depth + 1)
+                            for n in graph.neighbors(node)
+                            if n not in visited
+                        )
+
+                # Sort the reachable_nodes list by depth
+                reachable_nodes.sort(key=lambda x: x[1])
+
+                # Extract only the nodes from the sorted list
+                sorted_nodes = [node for node, depth in reachable_nodes]
+
+                # Memoize the result
+                memo[start_node] = sorted_nodes
+                return sorted_nodes
+
+            # Initialize the memoization dictionary
+            memo = {}
+
+            # Compute the connected nodes using optimized DFS with memoization
+            connected_nodes = {
+                node: dfs_collect_nodes_optimized(node, graph, memo)
+                for node in graph.nodes
+            }
 
             for node in graph.nodes:
                 neighbours = [
@@ -119,6 +155,14 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
                 # TODO: check where is the edge depth
                 for other in graph.neighbors(node):
                     next_edge_states[(node, other)] = new_edge_states[other]
+
+            for connected_node in connected_nodes:
+                for node in connected_nodes[connected_node]:
+                    if node == connected_node:
+                        continue
+                    next_node_states[connected_node].credit_limit.append(
+                        next_node_states[node].credit_limit[0]
+                    )
 
             for node in next_node_states:
                 graph.nodes[node]["state"] = next_node_states[node]
@@ -153,7 +197,7 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
 
 class BasicNodeState(NodeState):
     balance: int
-    credit_limit: int
+    credit_limit: List[int]
 
 
 class BasicEdgeState(EdgeState):
@@ -166,7 +210,7 @@ class Maxflow2GCA(GraphCellularAutomata[BasicNodeState, BasicEdgeState]):
     def initialize_graph(self, balance_distribution: dict[int, int], **kwargs):
         for node in self.graph.nodes:
             self.graph.nodes[node]["state"] = BasicNodeState(
-                balance=balance_distribution[node], credit_limit=0
+                balance=balance_distribution[node], credit_limit=[]
             )
 
         for edge in self.graph.edges:
@@ -195,10 +239,10 @@ class Maxflow2GCA(GraphCellularAutomata[BasicNodeState, BasicEdgeState]):
         debt = sum(neighbour.in_edge.flow for neighbour in neighbours)
         new_balance = node.balance + debt - locked_balance
 
-        new_node_state = BasicNodeState(balance=new_balance, credit_limit=new_credit_limit)
-        new_edge_states = {
-            edge.node_index: edge.out_edge for edge in neighbours
-        }
+        new_node_state = BasicNodeState(
+            balance=new_balance, credit_limit=[new_credit_limit]
+        )
+        new_edge_states = {edge.node_index: edge.out_edge for edge in neighbours}
         return new_node_state, new_edge_states
 
     @classmethod
