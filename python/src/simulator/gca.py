@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import TypeVar, Generic, NamedTuple
 
+import numpy as np
 import matplotlib.pyplot as plt
 import networkx as nx
 import pandas as pd
@@ -86,25 +87,25 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
             graph = previous_state["graph"]
             result = {}
             for node in graph.nodes:
-                result[node] = self.node_action_policy(graph.nodes[node])
+                result[node]["state"] = self.node_action_policy(graph.nodes[node]["state"])
             return result
 
         def _states_apply(params, substep, state_history, previous_state, policy_input):               
             graph = previous_state["graph"]
             for node in policy_input:
-                graph.nodes[node] = policy_input[node] 
+                graph.nodes[node]["state"] = policy_input[node] 
 
             for node in graph.nodes:
                 neighbours = [
                     self.AdjacentState(
-                        node=graph.nodes[n],
-                        in_edge=graph.edges[n, node],
-                        out_edge=graph.edges[node, n]
+                        node=graph.nodes[n]["state"],
+                        in_edge=graph.edges[n, node]["state"],
+                        out_edge=graph.edges[node, n]["state"]
                     )
                     for n in graph.neighbors(node)
                 ]
-                new_node_state, new_edge_states = self.transition_func(graph.nodes[node], neighbours)
-                graph.nodes[node] = new_node_state
+                new_node_state, new_edge_states = self.transition_func(graph.nodes[node]["state"], neighbours)
+                graph.nodes[node]["state"] = new_node_state
                 for n, edge in graph.edges(node, data=True):
                     edge["state"] = new_edge_states[n]
 
@@ -133,8 +134,58 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
         return records
 
 
+class BasicNodeState(NodeState):
+    balance: int
+    credit_limit: int
 
 
+class BasicEdgeState(EdgeState):
+    capacity: int
+    flow: int
 
+
+class Maxflow2GCA(GraphCellularAutomata[BasicNodeState, BasicEdgeState]):
+
+    def initialize_graph(self, balance_distribution: dict[int, int], **kwargs):
+        for node in self.graph.nodes:
+            self.graph.nodes[node]["state"] = BasicNodeState(balance=balance_distribution[node], credit_limit=0)
+
+        for edge in self.graph.edges:
+            e = self.graph.edges[edge]
+            e["state"] = BasicEdgeState(capacity=e["capacity"], flow=0)
+
+    @classmethod
+    def transition_func(
+        cls,
+        node: NS,
+        neighbours: list[GraphCellularAutomata.AdjacentState[BasicNodeState, BasicEdgeState]]
+    ) -> tuple[NS, list[ES]]:
+        # Simple logic to increase trust by a constant factor for demonstration
+        edge_credit_limits = [
+            min(neighbour.in_edge.capacity - neighbour.in_edge.flow, neighbour.node.balance)
+            for neighbour in neighbours
+        ]
+        
+        new_credit_limit = sum(edge_credit_limits)
+        locked_balance = sum(neighbour.out_edge.flow for neighbour in neighbours)
+        debt = sum(neighbour.in_edge.flow for neighbour in neighbours)
+        new_balance = node.balance + debt - locked_balance
+        return BasicNodeState(balance=new_balance, credit_limit=new_credit_limit), []
+
+    @classmethod
+    def node_action_policy(cls, node: NS) -> NS:
+        # The most basic policy: do nothing
+        return node
     
 
+if __name__ == "__main__":
+    graph = nx.barabasi_albert_graph(1000, 2, seed=42)
+    num_edges = graph.number_of_edges()
+    capacities = list(np.random.randint(1, 10000, num_edges))
+    balances = {node: np.random.randint(1, 100000) for node in graph.nodes}
+
+    for edge in graph.edges:
+        graph.edges[edge]["capacity"] = capacities.pop()
+
+    gca = Maxflow2GCA(graph, balance_distribution=balances)
+    records = gca.run_simulation(10)
