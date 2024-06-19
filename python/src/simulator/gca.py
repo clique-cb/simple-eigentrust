@@ -34,7 +34,8 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
     """
 
     class AdjacentState(NamedTuple):
-        node: NS
+        node_index: int
+        node_state: NS
         in_edge: ES
         out_edge: ES
 
@@ -55,7 +56,7 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
     @abstractmethod
     def transition_func(
         cls, node: NS, neighbours: list[AdjacentState]
-    ) -> tuple[NS, list[ES]]:
+    ) -> tuple[NS, dict[int, ES]]:
         """
         Transition rule for the node state update.
         """
@@ -85,9 +86,7 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
             graph = previous_state["graph"]
             result = {}
             for node in graph.nodes:
-                if node not in result:
-                    result[node] = {}
-                result[node]["state"] = self.node_action_policy(
+                result[node] = self.node_action_policy(
                     graph.nodes[node]["state"]
                 )
             return result
@@ -100,7 +99,8 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
             for node in graph.nodes:
                 neighbours = [
                     self.AdjacentState(
-                        node=graph.nodes[n]["state"],
+                        node_index=n,
+                        node_state=graph.nodes[n]["state"],
                         in_edge=graph.edges[n, node]["state"],
                         out_edge=graph.edges[node, n]["state"],
                     )
@@ -112,8 +112,8 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
                 graph.nodes[node]["state"] = new_node_state
 
                 # TODO: check where is the edge depth
-                for k, n, edge in list(graph.edges(node, data=True)):
-                    edge["state"] = new_edge_states[n]
+                for other in graph.neighbors(node):
+                    graph.edges[node, other]["state"] = new_edge_states[other]
 
             return "graph", graph
 
@@ -174,7 +174,7 @@ class Maxflow2GCA(GraphCellularAutomata[BasicNodeState, BasicEdgeState]):
         edge_credit_limits = [
             min(
                 neighbour.in_edge.capacity - neighbour.in_edge.flow,
-                neighbour.node["state"].balance,
+                neighbour.node_state.balance,
             )
             for neighbour in neighbours
         ]
@@ -182,8 +182,13 @@ class Maxflow2GCA(GraphCellularAutomata[BasicNodeState, BasicEdgeState]):
         new_credit_limit = sum(edge_credit_limits)
         locked_balance = sum(neighbour.out_edge.flow for neighbour in neighbours)
         debt = sum(neighbour.in_edge.flow for neighbour in neighbours)
-        new_balance = node["state"].balance + debt - locked_balance
-        return BasicNodeState(balance=new_balance, credit_limit=new_credit_limit), []
+        new_balance = node.balance + debt - locked_balance
+
+        new_node_state = BasicNodeState(balance=new_balance, credit_limit=new_credit_limit)
+        new_edge_states = {
+            edge.node_index: edge.out_edge for edge in neighbours
+        }
+        return new_node_state, new_edge_states
 
     @classmethod
     def node_action_policy(cls, node: NS) -> NS:
