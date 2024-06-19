@@ -96,6 +96,10 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
             for node in policy_input:
                 graph.nodes[node]["state"] = policy_input[node]
 
+            # save state updates to be applied at the end (avoid interference at each time step)
+            next_node_states = {}
+            next_edge_states = {}
+
             for node in graph.nodes:
                 neighbours = [
                     self.AdjacentState(
@@ -109,11 +113,18 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
                 new_node_state, new_edge_states = self.transition_func(
                     graph.nodes[node]["state"], neighbours
                 )
-                graph.nodes[node]["state"] = new_node_state
+
+                next_node_states[node] = new_node_state
 
                 # TODO: check where is the edge depth
                 for other in graph.neighbors(node):
-                    graph.edges[node, other]["state"] = new_edge_states[other]
+                    next_edge_states[(node, other)] = new_edge_states[other]
+
+            for node in next_node_states:
+                graph.nodes[node]["state"] = next_node_states[node]
+
+            for edge in next_edge_states:
+                graph.edges[edge]["state"] = next_edge_states[edge]
 
             return "graph", graph
 
