@@ -38,11 +38,9 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
         in_edge: ES
         out_edge: ES
 
-
     def __init__(self, graph: nx.DiGraph, **kwargs):
         self.graph = graph
         self.initialize_graph(**kwargs)
-
 
     @abstractmethod
     def initialize_graph(self, **kwargs):
@@ -53,10 +51,11 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
         """
         pass
 
-
     @classmethod
     @abstractmethod
-    def transition_func(cls, node: NS, neighbours: list[AdjacentState]) -> tuple[NS, list[ES]]:
+    def transition_func(
+        cls, node: NS, neighbours: list[AdjacentState]
+    ) -> tuple[NS, list[ES]]:
         """
         Transition rule for the node state update.
         """
@@ -70,7 +69,6 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
         deposit or withdraw funds.
         """
         pass
-
 
     def run_simulation(self, n_steps: int):
         """
@@ -87,30 +85,38 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
             graph = previous_state["graph"]
             result = {}
             for node in graph.nodes:
-                result[node]["state"] = self.node_action_policy(graph.nodes[node]["state"])
+                if node not in result:
+                    result[node] = {}
+                result[node]["state"] = self.node_action_policy(
+                    graph.nodes[node]["state"]
+                )
             return result
 
-        def _states_apply(params, substep, state_history, previous_state, policy_input):               
+        def _states_apply(params, substep, state_history, previous_state, policy_input):
             graph = previous_state["graph"]
             for node in policy_input:
-                graph.nodes[node]["state"] = policy_input[node] 
+                graph.nodes[node]["state"] = policy_input[node]
 
             for node in graph.nodes:
                 neighbours = [
                     self.AdjacentState(
                         node=graph.nodes[n]["state"],
                         in_edge=graph.edges[n, node]["state"],
-                        out_edge=graph.edges[node, n]["state"]
+                        out_edge=graph.edges[node, n]["state"],
                     )
                     for n in graph.neighbors(node)
                 ]
-                new_node_state, new_edge_states = self.transition_func(graph.nodes[node]["state"], neighbours)
+                new_node_state, new_edge_states = self.transition_func(
+                    graph.nodes[node]["state"], neighbours
+                )
                 graph.nodes[node]["state"] = new_node_state
-                for n, edge in graph.edges(node, data=True):
+
+                # TODO: check where is the edge depth
+                for k, n, edge in list(graph.edges(node, data=True)):
                     edge["state"] = new_edge_states[n]
 
             return "graph", graph
-        
+
         partial_state_update_block = [
             {
                 "policies": {"user_actions": _policies_apply},
@@ -148,7 +154,9 @@ class Maxflow2GCA(GraphCellularAutomata[BasicNodeState, BasicEdgeState]):
 
     def initialize_graph(self, balance_distribution: dict[int, int], **kwargs):
         for node in self.graph.nodes:
-            self.graph.nodes[node]["state"] = BasicNodeState(balance=balance_distribution[node], credit_limit=0)
+            self.graph.nodes[node]["state"] = BasicNodeState(
+                balance=balance_distribution[node], credit_limit=0
+            )
 
         for edge in self.graph.edges:
             e = self.graph.edges[edge]
@@ -158,25 +166,30 @@ class Maxflow2GCA(GraphCellularAutomata[BasicNodeState, BasicEdgeState]):
     def transition_func(
         cls,
         node: NS,
-        neighbours: list[GraphCellularAutomata.AdjacentState[BasicNodeState, BasicEdgeState]]
+        neighbours: list[
+            GraphCellularAutomata.AdjacentState[BasicNodeState, BasicEdgeState]
+        ],
     ) -> tuple[NS, list[ES]]:
         # Simple logic to increase trust by a constant factor for demonstration
         edge_credit_limits = [
-            min(neighbour.in_edge.capacity - neighbour.in_edge.flow, neighbour.node.balance)
+            min(
+                neighbour.in_edge.capacity - neighbour.in_edge.flow,
+                neighbour.node["state"].balance,
+            )
             for neighbour in neighbours
         ]
-        
+
         new_credit_limit = sum(edge_credit_limits)
         locked_balance = sum(neighbour.out_edge.flow for neighbour in neighbours)
         debt = sum(neighbour.in_edge.flow for neighbour in neighbours)
-        new_balance = node.balance + debt - locked_balance
+        new_balance = node["state"].balance + debt - locked_balance
         return BasicNodeState(balance=new_balance, credit_limit=new_credit_limit), []
 
     @classmethod
     def node_action_policy(cls, node: NS) -> NS:
         # The most basic policy: do nothing
         return node
-    
+
 
 if __name__ == "__main__":
     graph = nx.barabasi_albert_graph(1000, 2, seed=42)
