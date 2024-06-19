@@ -114,7 +114,7 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
         partial_state_update_block = [
             {
                 "policies": {"user_actions": _policies_apply},
-                "variables": {"protocol": _states_apply},
+                "variables": {"graph": _states_apply},
             }
         ]
 
