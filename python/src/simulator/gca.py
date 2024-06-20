@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import TypeVar, Generic, NamedTuple, List
 
 import numpy as np
+import itertools
 import matplotlib.pyplot as plt
 import networkx as nx
 import pandas as pd
@@ -36,8 +37,8 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
     class AdjacentState(NamedTuple):
         node_index: int
         node_state: NS
-        in_edge: ES
-        out_edge: ES
+        in_edge: ES | None
+        out_edge: ES | None
 
     def __init__(self, graph: nx.DiGraph, **kwargs):
         self.graph = graph
@@ -55,8 +56,8 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
     @classmethod
     @abstractmethod
     def transition_func(
-        cls, node: NS, neighbours: list[AdjacentState]
-    ) -> tuple[NS, dict[int, ES]]:
+        cls, node: NS, node_index: int, neighbours: list[AdjacentState]
+    ) -> tuple[NS, dict[(int, int), ES]]:
         """
         Transition rule for the node state update.
         """
@@ -98,25 +99,27 @@ class GraphCellularAutomata(ABC, Generic[NS, ES]):
             next_node_states = {}
             next_edge_states = {}
 
+            def _get_state(x: dict | None):
+                return x["state"] if x else None
+
             for node in graph.nodes:
                 neighbours = [
                     self.AdjacentState(
                         node_index=n,
                         node_state=graph.nodes[n]["state"],
-                        in_edge=graph.edges[n, node]["state"],
-                        out_edge=graph.edges[node, n]["state"],
+                        in_edge=_get_state(graph.in_edges.get((n, node))),
+                        out_edge=_get_state(graph.out_edges.get((node, n))),
                     )
-                    for n in graph.neighbors(node)
+                    for n in itertools.chain(graph.predecessors(node), graph.successors(node))
                 ]
                 new_node_state, new_edge_states = self.transition_func(
-                    graph.nodes[node]["state"], neighbours
+                    graph.nodes[node]["state"], node, neighbours
                 )
 
                 next_node_states[node] = new_node_state
 
                 # TODO: check where is the edge depth
-                for other in graph.neighbors(node):
-                    next_edge_states[(node, other)] = new_edge_states[other]
+                next_edge_states = next_edge_states | new_edge_states
 
             for node in next_node_states:
                 graph.nodes[node]["state"] = next_node_states[node]
@@ -175,10 +178,11 @@ class Maxflow2GCA(GraphCellularAutomata[BasicNodeState, BasicEdgeState]):
     def transition_func(
         cls,
         node: NS,
+        node_index: int,
         neighbours: list[
             GraphCellularAutomata.AdjacentState[BasicNodeState, BasicEdgeState]
         ],
-    ) -> tuple[NS, list[ES]]:
+    ) -> tuple[NS, dict[(int, int), ES]]:
         # Simple logic to increase trust by a constant factor for demonstration
         edge_credit_limits = [
             min(
@@ -188,11 +192,6 @@ class Maxflow2GCA(GraphCellularAutomata[BasicNodeState, BasicEdgeState]):
             for neighbour in neighbours
         ]
 
-        neighbour_limits = [
-            x.node_state.credit_limit[0]
-            for x in neighbours
-            if len(x.node_state.credit_limit) > 0
-        ]
         new_credit_limit = sum(edge_credit_limits)
         locked_balance = sum(neighbour.out_edge.flow for neighbour in neighbours)
         debt = sum(neighbour.in_edge.flow for neighbour in neighbours)
@@ -202,13 +201,84 @@ class Maxflow2GCA(GraphCellularAutomata[BasicNodeState, BasicEdgeState]):
             balance=new_balance, credit_limit=[new_credit_limit]
         )
 
-        new_edge_states = {edge.node_index: edge.out_edge for edge in neighbours}
+        new_edge_states = {(node_index, edge.node_index): edge.out_edge for edge in neighbours}
         return new_node_state, new_edge_states
 
     @classmethod
     def node_action_policy(cls, node: NS) -> NS:
         # The most basic policy: do nothing
         return node
+
+
+
+class VesselNodeState(NodeState):
+    balance: float
+    phantom_balance: float
+
+    @property
+    def credit_limit(self):
+        return max(self.phantom_balance - self.balance, 0)
+
+
+
+class VesselEdgeState(EdgeState):
+    capacity: float
+    flow: float
+    phantom_flow: float
+    height: float
+
+
+class VesselsGCA(GraphCellularAutomata):
+    def initialize_graph(self, balance_distribution: dict[int, float], **kwargs):
+        for node in self.graph.nodes:
+            self.graph.nodes[node]["state"] = VesselNodeState(
+                balance=balance_distribution[node], phantom_balance=balance_distribution[node]
+            )
+
+        for edge in self.graph.edges:
+            e = self.graph.edges[edge]
+            e["state"] = VesselEdgeState(capacity=e["capacity"], height=e["height"], flow=0, phantom_flow=0)
+
+    @classmethod
+    def transition_func(
+        cls,
+        node: NS,
+        node_index: int,
+        neighbours: list[
+            GraphCellularAutomata.AdjacentState[VesselNodeState, VesselEdgeState]
+        ],
+    ) -> tuple[NS, dict[(int, int), ES]]:
+        # Simple logic to increase trust by a constant factor for demonstration
+
+        in_neighbours = [neighbour for neighbour in neighbours if neighbour.in_edge is not None]
+        out_neighbours = [neighbour for neighbour in neighbours if neighbour.out_edge is not None]
+        out_neighbours = sorted(out_neighbours, key=lambda x: (x.out_edge.height, x.out_edge.capacity))
+
+        cur_balance = node.phantom_balance
+        out_flows = {}
+
+        for neighbour in out_neighbours:
+            h_diff = max(cur_balance - neighbour.node_state.phantom_balance, 0)
+            out_flows[neighbour.node_index] = neighbour.out_edge.capacity * np.sqrt(2 * h_diff)
+            cur_balance -= out_flows[neighbour.node_index]
+
+        cur_balance += sum(neighbour.in_edge.phantom_flow for neighbour in in_neighbours)
+
+        new_node_state = node.model_copy(update={"phantom_balance": cur_balance})
+        new_edge_states = {
+            (node_index, edge.node_index): edge.out_edge.model_copy(
+                update={"phantom_flow": out_flows[edge.node_index]}
+            )
+            for edge in out_neighbours
+        }
+        return new_node_state, new_edge_states
+
+
+    @classmethod
+    def node_action_policy(cls, node: NS) -> NS:
+        # The most basic policy: do nothing
+        return node
+
 
 
 if __name__ == "__main__":
